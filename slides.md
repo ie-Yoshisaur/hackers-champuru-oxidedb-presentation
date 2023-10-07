@@ -217,7 +217,7 @@ fonts:
   <h2>・SQLを処理する</h2>
   <br>
   <br>
-  <h2>・リカバリ方式はundo(後に解説)</h2>
+  <h2>・リカバリー方式はundo(後に解説)</h2>
 </div>
 
 ---
@@ -519,7 +519,7 @@ fonts:
   <br>
   <h2>・ログファイルにログ(レコード)を読み書きする</h2>
   <br>
-  <h2>・DBがクラッシュした場合のリカバリーとロールバックに使われる</h2>
+  <h2>・DBがクラッシュした場合のリカバリーとトランザクションのロールバックに使われる</h2>
   <h3>&nbsp;&nbsp;&nbsp;&nbsp;・ロールバックはトランザクションがデータ操作を永続化(コミットという)</h3>
   <h3>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;しないで、キャンセルすること</h3>
   <br>
@@ -534,20 +534,16 @@ fonts:
   sans: "HiraMaruProN-W4"
 ---
 
-# transactionの実装
+# log
 
+## logイテレータの仕組み
 
----
-transition: fade-out
-fonts:
-  sans: "HiraMaruProN-W4"
----
-
-# transactionの実装(recovery)
-
-## Rustの循環参照の話をする
-
-## WAL(write ahead logging)の話
+<div>
+  <br>
+  <h2>ブロック内の先頭側のブロックは新しいレコードを持つ</h2>
+  <br>
+  <img src="/images/log.svg" width="700" height="400" style="margin-left: 100px;">
+</div>
 
 ---
 transition: fade-out
@@ -555,13 +551,443 @@ fonts:
   sans: "HiraMaruProN-W4"
 ---
 
-# transactionの実装(concurrency)
+# log
 
-## RustとJavaの並行制御の実装の違いを解説
+## logイテレータの仕組み
 
-Mutexとsynchronized
+<div>
+  <br>
+  <h2>ファイルの先頭側のブロックは古いレコードを持つ</h2>
+  <br>
+  <img src="/images/log_greater_scale.svg" width="800" height="500" style="margin-left: 50px;">
+</div>
 
-## ブロック単位のWRロック
+---
+transition: fade-out
+fonts:
+  sans: "HiraMaruProN-W4"
+---
+
+# transaction
+
+<div>
+  <br>
+  <br>
+  <h2>transactionの役割が2つある</h2>
+  <br>
+  <br>
+  <h2>・リカバリー</h2>
+  <br>
+  <h3>&nbsp;&nbsp;&nbsp;&nbsp;・DBのクラッシュ時やトランザクションのロールバックを行う際に中途半端なデータの変更を取り消してデータの整合性を保つ</h3>
+  <br>
+  <h2>・並行性制御</h2>
+  <br>
+  <h3>&nbsp;&nbsp;&nbsp;&nbsp;・同時に同一のデータに複数の読み書きが行われても矛盾が起きない順序でデータを操作してデータの整合静を保つ</h3>
+</div>
+
+---
+transition: fade-out
+fonts:
+  sans: "HiraMaruProN-W4"
+---
+
+# transaction - recovery
+
+<div>
+  <br>
+  <br>
+  <h2>transactionはリカバリーのためにログレコードを書く</h2>
+  <br>
+  <br>
+  <h2>・transactionがDB(disk file)に何らかの操作を加えるときにログレコードをログファイルに書き込む</h2>
+  <br>
+  <h3>&nbsp;&nbsp;&nbsp;&nbsp;&lt;START&gt;, &lt;COMMIT&gt;, &lt;ROLLBACK&gt;, &lt;CHECKPOINT&gt;,</h3>
+  <h3>&nbsp;&nbsp;&nbsp;&nbsp;&lt;SETINT transaction_id block_id offset value&gt;,</h3>
+  <h3>&nbsp;&nbsp;&nbsp;&nbsp;&lt;SETSTRING transaction_id block_id offset value&gt;,</h3>
+  <br>
+  <h2>・リカバリーでは&lt;CHECKPOINT&gt;にたどり着くまで最新のレコードログから辿ってデータの変更の操作をundoし続ける</h2>
+</div>
+
+---
+transition: fade-out
+fonts:
+  sans: "HiraMaruProN-W4"
+---
+
+# transaction - recovery
+
+<div grid="~ cols-2 gap-4">
+  <div>
+    <br>
+    <br>
+    <h2>クラッシュ時のリカバリーのシュミレーション</h2>
+    <br>
+    <h2>クラッシュ時のリカバリーでは、ディスクに永続化されたコミットされていないデータ操作をundoする</h2>
+    <br>
+    <h2>CHECKPOINT前にCOMMITしていないトランザクションはundoされる</h2>
+  </div>
+  <div>
+    <br>
+```txt{all|12|9,13|10,11,14,15}
+1. START 1
+2. SETINT 1 1 10 1234
+3. SETSTRING 1 2 20 "Hello"
+4. COMMT 1
+5. START 2
+6. SETINT 2 3 30 5678
+7. SETSTRING 2 4 40 "World"
+8. ROLLBACK 2
+9. START 3
+10. SETINT 3 5 50 91011
+11. SETSTRING 3 6 60 "Database"
+12. CHECKPOINT
+13. START 4
+14. SETINT 4 7 70 1213
+15. SETSTRING 4 8 80 "Recovery"
+
+```
+  </div>
+</div>
+
+---
+transition: fade-out
+fonts:
+  sans: "HiraMaruProN-W4"
+---
+
+# transaction - recovery
+
+<div grid="~ cols-2 gap-4">
+  <div>
+    <br>
+    <br>
+    <h2>クラッシュ時のリカバリーのシュミレーション</h2>
+    <br>
+    <h2>クラッシュ時のリカバリーでは、ディスクに永続化されたコミットされていないデータ操作をundoする</h2>
+    <br>
+    <h2>CHECKPOINT前にCOMMITしていないトランザクションはundoされる</h2>
+  </div>
+  <div>
+    <br>
+```txt{all|12|9,13|10,11,14,15}
+1. START 1
+2. SETINT 1 1 10 1234
+3. SETSTRING 1 2 20 "Hello"
+4. COMMT 1
+5. START 2
+6. SETINT 2 3 30 5678
+7. SETSTRING 2 4 40 "World"
+8. ROLLBACK 2
+9. START 3
+10. SETINT 3 5 50 91011
+11. SETSTRING 3 6 60 "Database"
+12. CHECKPOINT
+13. START 4
+14. SETINT 4 7 70 1213
+15. SETSTRING 4 8 80 "Recovery"
+
+```
+  </div>
+</div>
+
+---
+transition: fade-out
+fonts:
+  sans: "HiraMaruProN-W4"
+---
+
+# transaction - recovery
+
+<br>
+    
+## Rustで実装するときの注意点 - 循環参照
+
+<br>
+
+### SimpleDBの実装ではtransactionとrecoveryを行うRecoveryMgrがお互いに参照を持っている
+
+<h3 v-click> -> Rustだとアンチパターン、RustはGCがない代わりに参照カウンタが0になったら解放する仕組みで、循環参照を実装すると永遠に解放されないままメモリリークする</h3>
+
+<div grid="~ cols-2 gap-4">
+  <div>
+```java{all|4}
+public class Transaction {
+   private static int nextTxNum = 0;
+   private static final int END_OF_FILE = -1;
+   private RecoveryMgr    recoveryMgr;
+   private ConcurrencyMgr concurMgr;
+   private BufferMgr bm;
+   private FileMgr fm;
+   private int txnum;
+   private BufferList mybuffers;
+}
+```
+  </div>
+  <div>
+    <br>
+```java{all|4}
+public class RecoveryMgr {
+   private LogMgr lm;
+   private BufferMgr bm;
+   private Transaction tx;
+   private int txnum;
+}
+```
+  </div>
+</div>
+
+---
+transition: fade-out
+fonts:
+  sans: "HiraMaruProN-W4"
+---
+
+# transaction - recovery
+
+<br>
+    
+## Rustの実装
+
+<div grid="~ cols-2 gap-4">
+  <div>
+    <br>
+    <br>
+```rs{all|4}
+pub struct Transaction {
+    file_manager: Arc<Mutex<FileManager>>,
+    buffer_manager: Arc<Mutex<BufferManager>>,
+    log_manager: Arc<Mutex<LogManager>>,
+    transaction_number: i32,
+    concurrency_manager: Arc<Mutex<ConcurrencyManager>>,
+    buffer_list: Arc<Mutex<BufferList>>,
+    recovery_manager: Arc<Mutex<RecoveryManager>>,
+}
+```
+  </div>
+  <div>
+    <br>
+```rs{all|1-5|7,11}
+pub struct RecoveryManager {
+    log_manager: Arc<Mutex<LogManager>>,
+    buffer_manager: Arc<Mutex<BufferManager>>,
+    transaction_number: i32,
+}
+
+pub fn rollback(&self, transaction: &mut Transaction) -> Result<(), RecoveryError> {
+    //省略
+}
+
+pub fn recover(&self, transaction: &mut Transaction) -> Result<(), RecoveryError> {
+    //省略
+}
+```
+  </div>
+</div>
+
+---
+transition: fade-out
+fonts:
+  sans: "HiraMaruProN-W4"
+---
+
+# transaction - concurrency
+
+<div grid="~ cols-2 gap-4">
+  <div>
+    <br>
+    <br>
+    <h2>・実装的には単一のブロックに対して2つ以上のバッファが割り振られることも可能</h2>
+    <br>
+    <h2>・書き込んだデータに矛盾が生じてしまう</h2>
+    <br>
+    <h2>・矛盾したデータを保存するDBに意味はなくなる</h2>
+    <br>
+  </div>
+  <div>
+    <div>
+        <img src="/images/buffer_multi_user.svg" width="500" height="500" style="margin-top: 50px;">
+    </div>
+  </div>
+</div>
+
+---
+transition: fade-out
+fonts:
+  sans: "HiraMaruProN-W4"
+---
+
+# transaction - concurrency
+
+<br>
+
+<div grid="~ cols-2 gap-4">
+  <div>
+    <br>
+    <h2>・データが壊れるシナリオ</h2>
+    <br>
+    <h2>・データに対して、2人以上の人がデータを読んでる状態で書き込みを行う</h2>
+    <br>
+    <h2>・xは2人によってインクリメントされ2になるはずだが、読み込みと書き込みの順序によってはこのような矛盾が生じる</h2>
+    <br>
+  </div>
+  <div>
+    <div>
+        <img src="/images/race_condition.svg" width="500" height="500" style="margin-top: 50px;">
+    </div>
+  </div>
+</div>
+
+---
+transition: none
+fonts:
+  sans: "HiraMaruProN-W4"
+---
+
+# transaction - concurrency
+
+<div grid="~ cols-2 gap-4">
+  <div>
+    <br>
+    <br>
+    <br>
+    <br>
+    <h2>・lock_tableがブロックにかかっているロックの数を管理</h2>
+    <br>
+    <br>
+    <h2>・locksがブロックにかかっているロックの種類を管理</h2>
+    <br>
+    <br>
+  </div>
+  <div>
+    <br>
+    <br>
+    <br>
+    <img src="/images/lock_table.svg" width="300" height="300" style="margin-left: 50px;">
+  </div>
+</div>
+
+---
+transition: fade-out
+fonts:
+  sans: "HiraMaruProN-W4"
+---
+
+# transaction - concurrency
+
+<div grid="~ cols-2 gap-4">
+  <div>
+    <br>
+    <br>
+    <br>
+    <br>
+    <h2>・lock_tableがブロックにかかっているロックの数を管理</h2>
+    <br>
+    <br>
+    <h2>・locksがブロックにかかっているロックの種類を管理</h2>
+    <br>
+    <br>
+  </div>
+  <div>
+    <br>
+    <br>
+    <br>
+```rs{all|7,8}
+enum LockType {
+    Shared,
+    Exclusive,
+}
+
+pub struct ConcurrencyManager {
+    lock_table: Arc<Mutex<LockTable>>,
+    locks: HashMap<BlockId, LockType>,
+}
+
+pub struct LockTable {
+    locks: HashMap<BlockId, i32>,
+}
+```
+  </div>
+</div>
+
+---
+transition: fade-out
+fonts:
+  sans: "HiraMaruProN-W4"
+---
+
+# transaction - concurrency
+
+## Rustで実装するときの注意点 - 可変シングルトン
+
+<div grid="~ cols-2 gap-4">
+  <div>
+    <br>
+    <br>
+    <h3> ・以下のjavaの実装はシングルトンである、しかも変更も加えられるので可変シングルトン</h3>
+    <br>
+    <h3> ・ConcurrencyMgrはTransactionがメンバーとして持つ</h3>
+    <br>
+```rs{all|2}
+public class ConcurrencyMgr {
+   private static LockTable locktbl = new LockTable();
+   private Map<BlockId,String> locks  = new HashMap<BlockId,String>();
+}
+```
+  </div>
+  <div>
+    <br>
+    <br>
+    <img src="/images/singleton.svg" width="500" height="500">
+  </div>
+</div>
+
+---
+transition: fade-out
+fonts:
+  sans: "HiraMaruProN-W4"
+---
+
+# transaction - concurrency
+
+## Rustで実装するときの注意点 - 可変シングルトン
+
+<div grid="~ cols-2 gap-4">
+  <div>
+    <br>
+    <br>
+    <h3> ・Rustでは可変シングルトンの実装はunsafeを使わないと実装ができない</h3>
+    <br>
+    <br>
+    <h3> ・ConcurrencyMgrはTransactionがメンバーとして持つ</h3>
+    <br>
+    <br>
+    <h3> ・Rustでは可読性が落ちるが、transactionを生成するDB自体がlock tableを持つようにしている</h3>
+  </div>
+  <div>
+    <br>
+    <br>
+```rs{all|6|11-18|16}
+pub struct OxideDB {
+    block_size: usize,
+    file_manager: Arc<Mutex<FileManager>>,
+    log_manager: Arc<Mutex<LogManager>>,
+    buffer_manager: Arc<Mutex<BufferManager>>,
+    lock_table: Arc<Mutex<LockTable>>,
+    metadata_manager: Option<Arc<MetadataManager>>,
+    planner: Option<Arc<Mutex<Planner>>>,
+}
+
+pub fn new_transaction(&self) -> Transaction {
+    Transaction::new(
+        self.file_manager.clone(),
+        self.log_manager.clone(),
+        self.buffer_manager.clone(),
+        self.lock_table.clone(),
+    )
+}
+```
+  </div>
+</div>
 
 ---
 transition: fade-out
@@ -571,41 +997,50 @@ fonts:
 
 # DB実装の成果
 
-### 自作結果/成果
+<br>
 
-- 14000行以上
-        テストが2990行
-- 15モジュール
-- 25テスト
+## 自作結果/成果
+
+<div>
+  <br>
+  <h2>・ソースコードの行数が14,000行を超えた(人生最高)</h2>
+  <h3>&nbsp;&nbsp;・テストが3000行ほど</h3>
+  <br>
+  <h2>・SimpleDBでも実装されているユニットテストと同じテストをOxideDBに90%以上実装、すべてPASS(25個)</h2>
+  <br>
+  <h2>・対話式コンソールでSQLが実行できるようになった</h2>
+  <br>
+  <h2>・Rust完全に理解した</h2>
+</div>
 
 ---
 transition: fade-out
 fonts:
   sans: "HiraMaruProN-W4"
 ---
-### 未実装部分
-- DBのセーブ/リロードする機能
-- sqlコマンドライン
-            SELECT *の実装
-            HELP
-            SHOW TABLES;
-### テスト
-- テストが少ないのでテストを追加する必要がある
-### 性能テスト
-            書き込み速度
-            読み込み
+
+# OxideDBのデモ
+
 ---
 transition: fade-out
 fonts:
   sans: "HiraMaruProN-W4"
 ---
-### 並行実行
-                Thread Poolは使わずにテストルーチンをマルチスレッドで動かしている
-                DBMS内部でのロックが起きないことを保証
-            トランザクション実行
-            8000行
-        デッドロック検出
-        複数接続
+
+# OxideDBの実装課題
+
+<div>
+  <br>
+  <br>
+  <br>
+  <h2>・インターフェースがシングルスレッドなので折角のtransactionの実装が活かされていない</h2>
+  <br>
+  <h2>・テストコードの量が足りない、実装と同じくらいコード量が必要</h2>
+  <h3>&nbsp;&nbsp;・あと8000行ほど</h3>
+  <br>
+  <h2>・デッドロック検知機を実装していない</h2>
+  <h3>&nbsp;&nbsp;・transactionの実装のデッドロック関連のデバッグで1週間溶かした</h3>
+</div>
 ---
 transition: fade-out
 fonts:
@@ -614,16 +1049,65 @@ fonts:
 
 # まとめ
 
-- SimpleなSQLを実行できるようになるまで実装することができた。
-- 1万行以上のRustのプログラミング経験を得た
-- 理解したかった本の一部(3, 7章)の部分を実装を通して理解することができた
+<div>
+  <br>
+  <br>
+  <h2>・SQLを実行できるところまで実装できた</h2>
+  <br>
+  <br>
+  <br>
+  <h2>・1万以上のRustのプログラミング経験を得た</h2>
+  <br>
+  <br>
+  <br>
+  <h2 v-click>・理解したかったイノシシ本、今でも普通に難しい</h2>
+</div>
 
 ---
+transition: fade-out
+fonts:
+  sans: "HiraMaruProN-W4"
+---
+
 
 # 将来の構想
 
-- Rustのモデル検査機が欲しい
-- Rustのデッドロック検査機が欲しい
-- Continuation based Rust
-- 分散DB, レプリケーション, スケーラビリティ
-- 
+<div>
+  <br>
+  <br>
+  <br>
+  <h2>・Rustのモデル検査機</h2>
+  <br>
+  <br>
+  <br>
+  <h2>・Rustのデッドロック検査機が欲しい</h2>
+  <br>
+  <br>
+  <br>
+  <h2>・Continuation based Rust</h2>
+</div>
+
+---
+fonts:
+  sans: "HiraMaruProN-W4"
+---
+
+
+# ご清聴ありがとうございました
+
+<div grid="~ cols-2 gap-4">
+  <div>
+    <br>
+    <h3> OxideDB</h3>
+    <br>
+    <img src="/images/OxideDB.png" width="300" height="300" style="margin-left: 50px;">
+    <br>
+  </div>
+  <div>
+    <br>
+    <h3> 発表資料/マインドマップ</h3>
+    <br>
+    <img src="/images/presentation.png" width="300" height="300" style="margin-left: 50px;">
+    <br>
+  </div>
+</div>
