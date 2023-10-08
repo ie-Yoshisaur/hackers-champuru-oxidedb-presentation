@@ -22,7 +22,7 @@ fonts:
 ---
 transition: fade-out
 fonts:
-  sans: "HiraMaruProN-W4"
+  sans: HiraMaruProN-W4
 ---
 
 # 自己紹介
@@ -49,10 +49,14 @@ fonts:
   </div>
 </div>
 
+<!--
+15秒
+-->
+
 ---
 transition: fade-out
 fonts:
-  sans: "HiraMaruProN-W4"
+  sans: HiraMaruProN-W4
 ---
 
 # 研究室紹介
@@ -77,6 +81,10 @@ fonts:
   <img src="/images/611.png">
   </div>
 </div>
+
+<!--
+15秒
+-->
 
 ---
 transition: fade-out
@@ -200,7 +208,7 @@ fonts:
 ---
 transition: fade-out
 fonts:
-  sans: "HiraMaruProN-W4"
+  sans: HiraMaruProN-W4
 ---
 
 # 設計方針
@@ -219,6 +227,10 @@ fonts:
   <br>
   <h2>・リカバリー方式はundo(後に解説)</h2>
 </div>
+
+<!--
+
+-->
 
 ---
 transition: fade-out
@@ -657,47 +669,6 @@ fonts:
 
 # transaction - recovery
 
-<div grid="~ cols-2 gap-4">
-  <div>
-    <br>
-    <br>
-    <h2>クラッシュ時のリカバリーのシュミレーション</h2>
-    <br>
-    <h2>クラッシュ時のリカバリーでは、ディスクに永続化されたコミットされていないデータ操作をundoする</h2>
-    <br>
-    <h2>CHECKPOINT前にCOMMITしていないトランザクションはundoされる</h2>
-  </div>
-  <div>
-    <br>
-```txt{all|12|9,13|10,11,14,15}
-1. START 1
-2. SETINT 1 1 10 1234
-3. SETSTRING 1 2 20 "Hello"
-4. COMMT 1
-5. START 2
-6. SETINT 2 3 30 5678
-7. SETSTRING 2 4 40 "World"
-8. ROLLBACK 2
-9. START 3
-10. SETINT 3 5 50 91011
-11. SETSTRING 3 6 60 "Database"
-12. CHECKPOINT
-13. START 4
-14. SETINT 4 7 70 1213
-15. SETSTRING 4 8 80 "Recovery"
-
-```
-  </div>
-</div>
-
----
-transition: fade-out
-fonts:
-  sans: "HiraMaruProN-W4"
----
-
-# transaction - recovery
-
 <br>
     
 ## Rustで実装するときの注意点 - 循環参照
@@ -752,7 +723,7 @@ fonts:
   <div>
     <br>
     <br>
-```rs{all|4}
+```rs{all|8}
 pub struct Transaction {
     file_manager: Arc<Mutex<FileManager>>,
     buffer_manager: Arc<Mutex<BufferManager>>,
@@ -1016,10 +987,14 @@ fonts:
 ---
 transition: fade-out
 fonts:
-  sans: "HiraMaruProN-W4"
+  sans: HiraMaruProN-W4
 ---
 
 # OxideDBのデモ
+
+<!--
+hoge
+-->
 
 ---
 transition: fade-out
